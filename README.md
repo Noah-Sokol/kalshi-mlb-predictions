@@ -8,17 +8,17 @@ the sportsbook closing line exceeds 8% and the bet-team's market probability exc
 
 ## Live Performance
 
-> Tracking since **2026-08-06** &nbsp;|&nbsp; 15 games pending results &nbsp;|&nbsp; *Updated 2026-08-11 12:58*
+> Tracking since **2026-08-06** &nbsp;|&nbsp; 15 games pending results &nbsp;|&nbsp; *Updated 2026-08-11 13:00*
 
-|  | Theoretical *(took every suggestion)* | Actual *(bets placed)* |
-|---|---|---|
-| **Bets** | 19 | 17 |
-| **Win Rate** | 52.6% | 52.9% |
-| **P&L** | +$46.73 | +$36.84 |
-| **ROI** | +36.9% | +40.7% |
-| **Wagered** | $126.54 | $90.50 |
+| | Model Results |
+|---|---|
+| **Bets** | 19 |
+| **Win Rate** | 52.6% |
+| **P&L** | +$46.73 |
+| **ROI** | +36.9% |
+| **Wagered** | $126.54 |
 
-### Recent Daily P&L (actual bets)
+### Recent Daily P&L
 
 | Date | Bets | P&L |
 |---|---|---|

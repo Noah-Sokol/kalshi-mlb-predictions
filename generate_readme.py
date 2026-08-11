@@ -160,15 +160,15 @@ the sportsbook closing line exceeds 8% and the bet-team's market probability exc
 
 > Tracking since **{s['start_date']}** &nbsp;|&nbsp; {s['pending']} games pending results &nbsp;|&nbsp; *Updated {now}*
 
-|  | Theoretical *(took every suggestion)* | Actual *(bets placed)* |
-|---|---|---|
-| **Bets** | {s['theo_n']} | {s['act_n']} |
-| **Win Rate** | {s['theo_win_rate']:.1%} | {s['act_win_rate']:.1%} |
-| **P&L** | {_dollar(s['theo_pnl'])} | {_dollar(s['act_pnl'])} |
-| **ROI** | {_pct(s['theo_roi'])} | {_pct(s['act_roi'])} |
-| **Wagered** | ${s['theo_wagered']:.2f} | ${s['act_wagered']:.2f} |
+| | Model Results |
+|---|---|
+| **Bets** | {s['theo_n']} |
+| **Win Rate** | {s['theo_win_rate']:.1%} |
+| **P&L** | {_dollar(s['theo_pnl'])} |
+| **ROI** | {_pct(s['theo_roi'])} |
+| **Wagered** | ${s['theo_wagered']:.2f} |
 
-### Recent Daily P&L (actual bets)
+### Recent Daily P&L
 
 | Date | Bets | P&L |
 |---|---|---|

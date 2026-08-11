@@ -1,0 +1,14 @@
+.env
+data/cache/
+data/processed/
+data/raw/
+data/logs/
+data/backtest_no_filters.csv
+data/*.xlsx
+~$*
+__pycache__/
+*.pyc
+*.pyo
+models/
+*.pkl
+*.joblib

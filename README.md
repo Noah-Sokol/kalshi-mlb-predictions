@@ -8,7 +8,7 @@ the sportsbook closing line exceeds 8% and the bet-team's market probability exc
 
 ## Live Performance
 
-> Tracking since **2026-08-06** &nbsp;|&nbsp; 15 games pending results &nbsp;|&nbsp; *Updated 2026-08-11 16:30*
+> Tracking since **2026-08-06** &nbsp;|&nbsp; 15 games pending results &nbsp;|&nbsp; *Updated 2026-08-11 16:40*
 
 | | Model Results |
 |---|---|
@@ -34,10 +34,10 @@ the sportsbook closing line exceeds 8% and the bet-team's market probability exc
 Historical odds sourced from SportsBookReview closing lines (~4.5% avg vig removed).
 Starting bankroll $1,000, 40% fractional Kelly sizing.
 
-| Filter | Bets | Win Rate | P&L | ROI |
+| Filter | Bets | Win Rate | ROI (vig-free) | ROI (with ~4.5% vig) |
 |---|---|---|---|---|
-| ≥8% edge (production threshold) | 244 | 54.5% | +$3825.77 | +10.4% |
-| ≥10% edge | 92 | 56.5% | +$2724.08 | +21.6% |
+| ≥8% edge (production threshold) | 244 | 54.5% | +10.4% | +5.4% |
+| ≥10% edge | 92 | 56.5% | +21.6% | +16.0% |
 ---
 
 ## How It Works

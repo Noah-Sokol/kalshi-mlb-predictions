@@ -67,51 +67,55 @@ def _live_stats(df: pd.DataFrame) -> dict:
     }
 
 
+AVG_VIG = 0.045  # average sportsbook vig (~4.5%, sourced from SBR closing lines)
+
+
+def _pnl_after_vig(subset: pd.DataFrame, vig: float = AVG_VIG) -> float:
+    """Recalculate P&L using vig-inclusive odds (win payouts reduced by vig spread)."""
+    total = 0.0
+    for _, row in subset.iterrows():
+        mkt     = float(row["market_prob"])
+        dollars = float(row["bet_dollars"])
+        home_bet = row["bet_side"] in ("YES", "home")
+        won      = bool(row["won"])
+        # Vig inflates the quoted probability toward 0.5 by vig/2 on each side
+        q = min(mkt + vig / 2, 0.99) if home_bet else min((1 - mkt) + vig / 2, 0.99)
+        win_odds = (1 - q) / q
+        total += dollars * win_odds if won else -dollars
+    return total
+
+
 def _backtest_stats() -> list[dict]:
     if not BACKTEST_PATH.exists():
         return []
-    bt = pd.read_csv(BACKTEST_PATH)
+    bt   = pd.read_csv(BACKTEST_PATH)
     bets = bt[bt["bet_side"].notna() & (bt["bet_dollars"] > 0)].copy()
-    bets["bet_mkt_prob"] = np.where(
-        bets["bet_side"].isin(["YES", "home"]),
-        bets["market_prob"],
-        1 - bets["market_prob"]
-    )
     bets["won"] = np.where(
         bets["bet_side"].isin(["YES", "home"]),
         bets["outcome_home_win"] == 1,
-        bets["outcome_home_win"] == 0
+        bets["outcome_home_win"] == 0,
     )
-    rows = []
-    for label, mask in [
-        ("All bets (>4% edge)",  bets["bet_mkt_prob"] >= 0.0),
-        (">7% edge",             bets["bet_mkt_prob"] >= 0.0),   # placeholder — filtered by edge below
-        (">10% edge",            bets["bet_mkt_prob"] >= 0.0),
-    ]:
-        pass
 
-    # Use the original backtest CSV which was run with 8% edge + 40% mkt filter
-    # Bucket by absolute edge size post-hoc
     all_bets = bets
-    hi7  = bets[abs(bt.loc[bets.index, "edge"]) >= 0.07]
-    hi10 = bets[abs(bt.loc[bets.index, "edge"]) >= 0.10]
+    hi10     = bets[bt.loc[bets.index, "edge"].abs() >= 0.10]
 
+    rows = []
     for label, subset in [
         ("≥8% edge (production threshold)", all_bets),
-        ("≥10% edge", hi10),
+        ("≥10% edge",                       hi10),
     ]:
         n = len(subset)
         if n == 0:
             continue
-        wagered = subset["bet_dollars"].sum()
-        pnl     = subset["pnl"].sum()
+        wagered     = subset["bet_dollars"].sum()
+        pnl_free    = subset["pnl"].sum()
+        pnl_vig     = _pnl_after_vig(subset)
         rows.append({
             "label":    label,
             "n":        n,
             "win_rate": subset["won"].mean(),
-            "pnl":      pnl,
-            "roi":      pnl / wagered if wagered > 0 else 0,
-            "final_bk": subset["bankroll"].iloc[-1],
+            "roi_free": pnl_free / wagered if wagered > 0 else 0,
+            "roi_vig":  pnl_vig  / wagered if wagered > 0 else 0,
         })
     return rows
 
@@ -143,7 +147,7 @@ def generate() -> None:
     for r in bt:
         bt_rows += (
             f"| {r['label']} | {r['n']:,} | {r['win_rate']:.1%} | "
-            f"{_dollar(r['pnl'])} | {_pct(r['roi'])} |\n"
+            f"{_pct(r['roi_free'])} | {_pct(r['roi_vig'])} |\n"
         )
 
     readme = f"""\
@@ -179,7 +183,7 @@ the sportsbook closing line exceeds 8% and the bet-team's market probability exc
 Historical odds sourced from SportsBookReview closing lines (~4.5% avg vig removed).
 Starting bankroll $1,000, 40% fractional Kelly sizing.
 
-| Filter | Bets | Win Rate | P&L | ROI |
+| Filter | Bets | Win Rate | ROI (vig-free) | ROI (with ~4.5% vig) |
 |---|---|---|---|---|
 {bt_rows}\
 ---

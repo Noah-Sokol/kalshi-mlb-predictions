@@ -8,7 +8,7 @@ the sportsbook closing line exceeds 8% and the bet-team's market probability exc
 
 ## Live Performance
 
-> Tracking since **2026-08-06** &nbsp;|&nbsp; 15 games pending results &nbsp;|&nbsp; *Updated 2026-08-11 13:00*
+> Tracking since **2026-08-06** &nbsp;|&nbsp; 15 games pending results &nbsp;|&nbsp; *Updated 2026-08-11 16:30*
 
 | | Model Results |
 |---|---|
@@ -36,9 +36,8 @@ Starting bankroll $1,000, 40% fractional Kelly sizing.
 
 | Filter | Bets | Win Rate | P&L | ROI |
 |---|---|---|---|---|
-| All bets (≥8% edge, ≥40% mkt) | 1,154 | 50.2% | -$401.52 | -1.0% |
-| ≥7% edge | 403 | 52.4% | +$440.87 | +2.3% |
-| ≥10% edge | 92 | 56.5% | +$624.88 | +12.4% |
+| ≥8% edge (production threshold) | 244 | 54.5% | +$3825.77 | +10.4% |
+| ≥10% edge | 92 | 56.5% | +$2724.08 | +21.6% |
 ---
 
 ## How It Works

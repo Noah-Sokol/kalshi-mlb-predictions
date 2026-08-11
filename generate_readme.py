@@ -12,7 +12,7 @@ import os; os.chdir(Path(__file__).parent)
 
 TRACKING_START  = pd.Timestamp("2026-08-06")
 LOG_PATH        = Path("data/bets_log.csv")
-BACKTEST_PATH   = Path("data/backtest_no_blend.csv")
+BACKTEST_PATH   = Path("data/backtest_nb_8pct.csv")
 README_PATH     = Path("README.md")
 
 
@@ -97,8 +97,7 @@ def _backtest_stats() -> list[dict]:
     hi10 = bets[abs(bt.loc[bets.index, "edge"]) >= 0.10]
 
     for label, subset in [
-        ("All bets (≥8% edge, ≥40% mkt)", all_bets),
-        ("≥7% edge",  hi7),
+        ("≥8% edge (production threshold)", all_bets),
         ("≥10% edge", hi10),
     ]:
         n = len(subset)

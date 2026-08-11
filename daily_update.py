@@ -400,6 +400,11 @@ def main():
         log.info("Results-only mode — skipping odds and picks.")
         fill_yesterdays_results()
         _export_excel(log)
+        try:
+            from generate_readme import generate as _gen_readme
+            _gen_readme()
+        except Exception as e:
+            log.warning(f"  README generation failed: {e}")
         log.info("Done.")
         return
 
@@ -460,6 +465,13 @@ def main():
 
     # ── 7. Regenerate Excel tracker ──────────────────────────────────────────
     _export_excel(log)
+
+    # ── 8. Regenerate README with latest stats ────────────────────────────────
+    try:
+        from generate_readme import generate as _gen_readme
+        _gen_readme()
+    except Exception as e:
+        log.warning(f"  README generation failed: {e}")
 
     log.info("Done.")
     log.info("  To record a bet: python record_bet.py TEAM DOLLARS")

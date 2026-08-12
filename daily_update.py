@@ -372,12 +372,33 @@ def _export_excel(logger) -> None:
         logger.warning(f"Excel export failed: {e}")
 
 
+_BANKROLL_LOG = Path("data/bankroll_log.csv")
+_BANKROLL_DEFAULT = 100.0
+
+
+def _read_last_bankroll() -> float:
+    if not _BANKROLL_LOG.exists():
+        return _BANKROLL_DEFAULT
+    df = pd.read_csv(_BANKROLL_LOG)
+    if df.empty:
+        return _BANKROLL_DEFAULT
+    return float(df.iloc[-1]["bankroll"])
+
+
+def _append_bankroll(amount: float) -> None:
+    row = pd.DataFrame([{"date": date.today().isoformat(), "bankroll": amount}])
+    if _BANKROLL_LOG.exists():
+        row.to_csv(_BANKROLL_LOG, mode="a", header=False, index=False)
+    else:
+        row.to_csv(_BANKROLL_LOG, index=False)
+
+
 def main():
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--min-edge",    type=float, default=0.08)
     ap.add_argument("--kelly-frac",  type=float, default=0.40)
-    ap.add_argument("--bankroll",    type=float, default=121.0)
+    ap.add_argument("--bankroll",    type=float, default=None)
     ap.add_argument("--market-blend", type=float, default=0.0,
                     help="Blend model with sportsbook: (1-b)*model + b*sportsbook. Default 0.0 (no blend -- use 8% edge threshold instead; backtest validated).")
     ap.add_argument("--min-bet-mkt-prob", type=float, default=0.40,
@@ -390,6 +411,14 @@ def main():
     ap.add_argument("--results-only", action="store_true",
                     help="Skip odds/picks — just fill today's results and regenerate Excel (no API calls)")
     args = ap.parse_args()
+
+    # Bankroll: log it when explicitly provided; otherwise use last logged value
+    if args.bankroll is not None:
+        _append_bankroll(args.bankroll)
+        log.info(f"Bankroll updated to ${args.bankroll:.2f} — logged to {_BANKROLL_LOG}")
+    else:
+        args.bankroll = _read_last_bankroll()
+        log.info(f"Bankroll: ${args.bankroll:.2f} (last logged value)")
 
     current_year = date.today().year
     log.info(f"=== Daily update started — {date.today()} ===")

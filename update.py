@@ -68,9 +68,13 @@ if __name__ == "__main__":
 
     # Show bankroll
     if bankroll:
-        print(f"  Bankroll: ${bankroll:.2f} (from --bankroll argument)")
+        print(f"  Bankroll: ${bankroll:.2f} (will be logged to bankroll_log.csv)")
     else:
-        print(f"  Bankroll: $121.00 (default - update with --bankroll X)")
+        from pathlib import Path
+        import pandas as pd
+        _bl = Path("data/bankroll_log.csv")
+        last = float(pd.read_csv(_bl).iloc[-1]["bankroll"]) if _bl.exists() else 100.0
+        print(f"  Bankroll: ${last:.2f} (last logged value — pass --bankroll X to update)")
 
     # Show market blend
     if market_blend is not None:

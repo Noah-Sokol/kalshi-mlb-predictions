@@ -1,40 +1,24 @@
 """
-Backtesting framework -- evaluates model edge against real and simulated markets.
+Backtesting framework -- evaluates model edge against real sportsbook closing lines.
 
-Default mode uses real historical sportsbook closing lines (2021-2025) from
-data/processed/historical_odds_clean.csv as the market price, falling back to
-Pythagorean win expectancy for games with no odds data.
+Always uses real historical SBR closing lines (2021-2025) from the feature matrix.
+Games with no odds data are skipped (no bet placed).
 
-Recommended production backtest (2023-2024 test set):
-    python backtest.py --min-edge 0.08
-    => ~244 bets, 54.5%% win rate, +4.8x bankroll growth, ROI +10%%
-
-Basic usage:
-    python backtest.py                              # real historical odds + quality filters
-    python backtest.py --min-edge 0.08          # recommended: blend model 50/50 with sportsbook
-    python backtest.py --flat-bet 10               # flat bet (no compounding, honest signal check)
-    python backtest.py --test-seasons 2            # specify holdout window
+Usage:
+    python backtest.py                              # production settings
+    python backtest.py --min-edge 0.10             # higher edge threshold
+    python backtest.py --flat-bet 10               # flat $10 per bet instead of Kelly
+    python backtest.py --starting-bankroll 90      # set starting bankroll
+    python backtest.py --test-seasons 2            # holdout window (default 2 seasons)
 
 Quality-gate filters (ON by default):
     --min-bet-mkt-prob 0.40   Skip bets where market gives bet-team <40%% win prob.
-                               Prevents betting against heavy market favorites.
-    --min-team-win-pct 0.33   Skip bets on teams with season win%%<33%% OR
-                               last-20-game win%%<28%%. Catches mid-season collapses.
+    --min-team-win-pct 0.33   Skip bets on teams with season win%%<33%%.
     (disable with: --min-bet-mkt-prob 0 --min-team-win-pct 0)
 
-Market options:
-    --market-blend FLOAT   (1-blend)*model + blend*market. Corrects probability compression.
-                           Recommendation: 0.5. Analysis optimal: ~0.8.
-    --pythagorean-market   Pythagorean proxy + Gaussian noise (legacy baseline).
-    --logistic-market      LR trained on all features -- hardest honest baseline.
-    --use-saved-market     Daily-logged prices from data/market_prices.csv.
-    --sim-spread 0.55      Flat implied home-win prob = 0.55 for every game.
-
 Historical odds data:
-    Source  : ArnavSaraogi/mlb-odds-scraper (SportsBookReview, free)
-    Coverage: 2021-2025, ~11,400 games, avg 4.8 bookmakers per game
-    Avg vig : ~4.3%%%% (removed before edge calculation)
-    Rebuild : python src/data/historical_odds_parser.py
+    Source  : SportsBookReview closing lines (2021-2025)
+    Avg vig : ~4.49%% (removed before edge calculation)
 """
 import argparse
 import sys
@@ -43,8 +27,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.metrics import brier_score_loss
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
 
 import os; os.chdir(Path(__file__).parent)
 
@@ -138,7 +120,7 @@ def simulate_pnl(
         mp  = float(row["model_prob"])
         mkt = float(row["market_prob"])
         actual = row.get("home_win")
-        if pd.isna(actual):
+        if pd.isna(actual) or pd.isna(mkt):
             continue
 
         rec = bet_recommendation(mp, mkt, bankroll,
@@ -209,7 +191,8 @@ def simulate_pnl(
 
 def print_report(test: pd.DataFrame, probs: np.ndarray, market_probs: np.ndarray,
                  pnl_df: pd.DataFrame, kelly_frac: float, market_mode: str = "historical",
-                 min_bet_mkt_prob: float = 0.0, min_team_win_pct: float = 0.0):
+                 min_bet_mkt_prob: float = 0.0, min_team_win_pct: float = 0.0,
+                 starting_bankroll: float = 1000.0):
     actuals = test["home_win"].values.astype(float)
     mask = ~np.isnan(actuals)
     probs_clean = probs[mask]
@@ -245,7 +228,7 @@ def print_report(test: pd.DataFrame, probs: np.ndarray, market_probs: np.ndarray
         print(chr(10) + chr(45)*60)
         print(  "  MARKET ODDS QUALITY")
         print(f"  Real odds         : {n_real_t:,} games ({n_real_t/len(test):.1%})")
-        print(f"  Pythagorean fill  : {n_pyth_t:,} games ({n_pyth_t/len(test):.1%})")
+        print(f"  No odds (skipped) : {n_pyth_t:,} games ({n_pyth_t/len(test):.1%})")
         if n_susp:
             print(f"  Suspicious (>3%)  : {n_susp:,} games flagged")
         if avg_vig is not None:
@@ -295,119 +278,50 @@ def print_report(test: pd.DataFrame, probs: np.ndarray, market_probs: np.ndarray
     print()
 
 
-def _pythagorean_market(test: pd.DataFrame, sim_vig: float) -> np.ndarray:
-    """
-    Simple market proxy: rolling Pythagorean win expectancy + Gaussian noise + vig.
-    Does NOT use actual outcomes. Useful as a lower-bound on market sophistication.
-    """
-    np.random.seed(42)
-    HOME_ADVANTAGE = 0.54
-    pyth_home = pd.to_numeric(
-        test.get("h_rolling_pythag", pd.Series(np.full(len(test), HOME_ADVANTAGE))),
-        errors="coerce"
-    ).fillna(HOME_ADVANTAGE).values
-    pyth_away = pd.to_numeric(
-        test.get("a_rolling_pythag", pd.Series(np.full(len(test), HOME_ADVANTAGE))),
-        errors="coerce"
-    ).fillna(HOME_ADVANTAGE).values
-    matchup = pyth_home / np.where(pyth_home + pyth_away > 0, pyth_home + pyth_away, 1.0)
-    blended = 0.6 * matchup + 0.4 * HOME_ADVANTAGE
-    noise = np.random.normal(0, 0.04, len(blended))
-    market_probs = np.clip(blended + noise + sim_vig / 2, 0.42, 0.70)
-    print(f"Simulating Pythagorean market with vig={sim_vig:.0%} "
-          f"(mean market prob: {market_probs.mean():.3f})")
-    return market_probs
-
-
-def _logistic_market(
-    train: pd.DataFrame,
-    test: pd.DataFrame,
-    artifacts: dict,
-    sim_vig: float,
-) -> np.ndarray:
-    """
-    Logistic regression trained on the same features as the XGBoost model.
-    Simulates an 'informed basic market' that uses all available pre-game data
-    but with a weaker model — a harder and more honest bar than Pythagorean-only.
-    """
-    from src.features.game_features import FEATURE_COLS
-    np.random.seed(42)
-
-    available = [c for c in FEATURE_COLS if c in train.columns and c in test.columns]
-    X_train = train[available].fillna(train[available].median())
-    y_train = train["home_win"].astype(float)
-    X_test  = test[available].fillna(train[available].median())
-
-    scaler = StandardScaler()
-    X_train_s = scaler.fit_transform(X_train)
-    X_test_s  = scaler.transform(X_test)
-
-    lr = LogisticRegression(C=0.1, max_iter=1000, random_state=42)
-    lr.fit(X_train_s, y_train)
-    base_probs = lr.predict_proba(X_test_s)[:, 1]
-
-    # Add vig overlay + small noise to simulate market spread
-    noise = np.random.normal(0, 0.02, len(base_probs))
-    market_probs = np.clip(base_probs + noise + sim_vig / 2, 0.42, 0.70)
-    print(f"Logistic-regression market with vig={sim_vig:.0%} "
-          f"(mean market prob: {market_probs.mean():.3f}, "
-          f"using {len(available)}/{len(FEATURE_COLS)} features)")
-    return market_probs
-
-
-
-def _historical_odds_market(test: pd.DataFrame, sim_vig: float, line_type: str = "closing") -> np.ndarray:
+def _historical_odds_market(test: pd.DataFrame, line_type: str = "closing") -> np.ndarray:
     """
     Use real SBR sportsbook lines as the market price.
-    line_type="closing" = closing line (default, most efficient market price).
-    line_type="opening" = opening line (softer, approximates ~10am Kalshi price).
-    Priority: (1) closing already merged in feature matrix, else (2) on-the-fly merge.
+    Games with no odds data are left as NaN — no bet is placed on them.
+    line_type="closing" = closing line (default).
+    line_type="opening" = opening line (~10am proxy).
+    Priority: (1) closing already in feature matrix, else (2) on-the-fly merge from CSV.
     """
     hist_path = Path("data/processed/historical_odds_clean.csv")
 
-    # Path 1: closing line already in feature matrix (skip for opening line mode)
+    # Path 1: closing line already in feature matrix
     if line_type == "closing" and "market_home_prob" in test.columns:
         mprobs  = test["market_home_prob"].values.astype(float)
-        src_col = test["odds_source"] if "odds_source" in test.columns else pd.Series(["unknown"] * len(test))
-        n_real  = int((src_col == "real").sum())
-        n_total = len(test)
+        n_real  = int((~pd.isna(mprobs)).sum())
         n_miss  = int(pd.isna(mprobs).sum())
-        print(f"Historical odds (feature matrix): {n_real:,}/{n_total:,} games "
-              f"({n_real/n_total:.1%}) real; {n_miss:,} missing -> Pythagorean")
-        if n_miss > 0:
-            fill   = _pythagorean_market(test, sim_vig)
-            mprobs = np.where(pd.isna(mprobs), fill, mprobs)
-        return mprobs.astype(float)
+        print(f"Historical odds (feature matrix): {n_real:,}/{len(test):,} games "
+              f"({n_real/len(test):.1%}) real; {n_miss:,} missing -> skipped")
+        return mprobs
 
     # Path 2: on-the-fly merge from CSV
     if not hist_path.exists():
-        print("  historical_odds_clean.csv not found; run pipeline.py first. "
-              "Falling back to Pythagorean.")
-        return _pythagorean_market(test, sim_vig)
+        raise FileNotFoundError(
+            "data/processed/historical_odds_clean.csv not found. Run pipeline.py first."
+        )
 
     from src.data.historical_odds_parser import load_historical_odds
     odds_df = load_historical_odds()
     t2 = test.copy().reset_index(drop=True)
     t2["_ds"]      = pd.to_datetime(t2["date"]).dt.strftime("%Y-%m-%d")
     odds_df["_ds"] = pd.to_datetime(odds_df["date"]).dt.strftime("%Y-%m-%d")
-    prob_col = "market_home_prob" if line_type == "closing" else "open_home_prob"
-    merge_cols = ["_ds", "home_team_fg", "away_team_fg", prob_col]  # no odds_source to avoid suffix conflict
+    prob_col   = "market_home_prob" if line_type == "closing" else "open_home_prob"
+    merge_cols = ["_ds", "home_team_fg", "away_team_fg", prob_col]
     if "open_avg_vig" in odds_df.columns and line_type == "opening":
         merge_cols.append("open_avg_vig")
-    merged = t2.merge(
+    merged  = t2.merge(
         odds_df[[c for c in merge_cols if c in odds_df.columns]],
         on=["_ds", "home_team_fg", "away_team_fg"],
         how="left",
     )
     mprobs  = merged[prob_col].values.astype(float) if prob_col in merged.columns else merged["market_home_prob"].values.astype(float)
-    n_real  = int((~pd.isna(mprobs)).sum())  # matched rows = real odds
-    n_total = len(merged)
+    n_real  = int((~pd.isna(mprobs)).sum())
     n_miss  = int(pd.isna(mprobs).sum())
-    print(f"Historical odds (on-the-fly, {line_type} line): {n_real:,}/{n_total:,} games "
-          f"({n_real/n_total:.1%}) real; {n_miss:,} missing -> Pythagorean")
-    if n_miss > 0:
-        fill   = _pythagorean_market(test, sim_vig)
-        mprobs = np.where(pd.isna(mprobs), fill, mprobs)
+    print(f"Historical odds (on-the-fly, {line_type}): {n_real:,}/{len(merged):,} games "
+          f"({n_real/len(merged):.1%}) real; {n_miss:,} missing -> skipped")
     return mprobs.astype(float)
 
 def main():
@@ -416,16 +330,6 @@ def main():
     ap.add_argument("--test-seasons",  type=int,   default=2)
     ap.add_argument("--kelly-frac",    type=float, default=0.40)
     ap.add_argument("--min-edge",      type=float, default=0.08)
-    ap.add_argument("--sim-spread",    type=float, default=None,
-                    help="Flat implied home-win prob for all games (e.g. 0.55)")
-    ap.add_argument("--sim-vig",       type=float, default=0.05,
-                    help="Market vig to add to true probability (default 0.05)")
-    ap.add_argument("--use-saved-market", action="store_true",
-                    help="Use market_home_prob column from feature CSV if present")
-    ap.add_argument("--logistic-market", action="store_true",
-                    help="Simulate market as logistic regression on same features (harder baseline)")
-    ap.add_argument("--pythagorean-market", action="store_true",
-                    help="Use Pythagorean win expectancy + noise (old default backtest mode)")
     ap.add_argument("--opening-line", action="store_true",
                     help="Use sportsbook OPENING lines instead of closing lines (~10am proxy)")
     ap.add_argument("--flat-bet",       type=float, default=None,
@@ -482,29 +386,9 @@ def main():
     print(f"Scoring {len(test):,} holdout games...")
     probs = predict(test, artifacts)
 
-    # ── Construct market probabilities for simulation ───────────────────────────────────────────────────────────────
-    if args.logistic_market:
-        market_probs = _logistic_market(train, test, artifacts, args.sim_vig)
-    elif args.sim_spread is not None:
-        market_probs = np.full(len(test), args.sim_spread)
-        print(f"Simulating flat market: home win prob = {args.sim_spread:.3f}")
-    elif args.use_saved_market:
-        if "market_home_prob" in test.columns:
-            market_probs = test["market_home_prob"].values.astype(float)
-            n_ok = int((~pd.isna(market_probs)).sum())
-            print(f"Saved market prices: {n_ok:,} games with prices.")
-            if pd.isna(market_probs).any():
-                fill = _pythagorean_market(test, args.sim_vig)
-                market_probs = np.where(pd.isna(market_probs), fill, market_probs)
-        else:
-            print("  --use-saved-market: market_home_prob not found; using historical odds.")
-            market_probs = _historical_odds_market(test, args.sim_vig)
-    elif args.pythagorean_market:
-        market_probs = _pythagorean_market(test, args.sim_vig)
-    else:
-        # Default: real historical lines (closing or opening based on --opening-line)
-        _line = "opening" if args.opening_line else "closing"
-        market_probs = _historical_odds_market(test, args.sim_vig, line_type=_line)
+    # ── Real historical closing lines only ────────────────────────────────────
+    _line = "opening" if args.opening_line else "closing"
+    market_probs = _historical_odds_market(test, line_type=_line)
     # -- Market blend: mix model prob toward market to reduce compression.
     # Use --market-blend 0.0 (default) for pure model; 0.8 closely tracks market.
     if args.market_blend > 0:
@@ -522,14 +406,11 @@ def main():
         min_team_win_pct=args.min_team_win_pct,
     )
 
-    _mmode = ("logistic" if args.logistic_market
-              else "pythagorean" if args.pythagorean_market
-              else "saved" if args.use_saved_market
-              else "opening line" if args.opening_line
-              else "historical (closing)")
+    _mmode = "opening line" if args.opening_line else "historical (closing)"
     print_report(test, probs, market_probs, pnl_df, args.kelly_frac, market_mode=_mmode,
                  min_bet_mkt_prob=args.min_bet_mkt_prob,
-                 min_team_win_pct=args.min_team_win_pct)
+                 min_team_win_pct=args.min_team_win_pct,
+                 starting_bankroll=args.starting_bankroll)
 
     if args.save_results and not pnl_df.empty:
         pnl_df.to_csv(args.save_results, index=False)

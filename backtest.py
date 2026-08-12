@@ -275,7 +275,7 @@ def print_report(test: pd.DataFrame, probs: np.ndarray, market_probs: np.ndarray
             print(f"  Bet win rate     : {win_rate:.3f}")
             print(f"  Total P&L        : ${total_pnl:+.2f}")
             print(f"  ROI on wagered   : {roi:+.3f}")
-            print(f"  Final bankroll   : ${final_br:.2f}  (started: $1000)")
+            print(f"  Final bankroll   : ${final_br:.2f}  (started: ${starting_bankroll:.0f})")
 
             # Monthly breakdown
             if "date" in pnl_df.columns:

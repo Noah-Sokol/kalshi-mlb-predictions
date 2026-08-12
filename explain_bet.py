@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.models.win_probability import load, _fill_features
+from src.features.game_features import FEATURE_COLS
 from src.edge.explain import explain_bet, format_explanation
 
 LOG_PATH = Path("data/bets_log.csv")
@@ -64,24 +65,10 @@ def main():
     current_year = date.today().year
 
     try:
-        season_games = fetch_season_games(current_year)
-        fg_bat  = fetch_team_batting(current_year - 1)
-        fg_pit  = fetch_team_pitching(current_year - 1)
-        sp_stats = fetch_pitcher_stats(current_year - 1)
-        bat_stats = fetch_batter_stats(current_year - 1)
-        sc_bat  = fetch_team_batting_sc(current_year - 1)
-        sc_pit  = fetch_team_pitching_sc(current_year - 1)
-        bp_lines = fetch_season_pitching_lines(current_year)
-
-        bp_qual  = aggregate_team_bp_quality(fg_pit, sp_stats)
-        bp_load  = compute_rolling_bp_load(bp_lines)
-        sp_roll  = compute_rolling_starter_stats(bp_lines)
-
+        from src.data.mlb_api import fetch_today_schedule
+        from daily_update import build_features_for_today
         today_games = fetch_today_schedule()
-        feat = build_game_features(
-            today_games, season_games, fg_bat, fg_pit,
-            sc_bat, sc_pit, bp_qual, bp_load, sp_roll, sp_stats
-        )
+        feat = build_features_for_today(today_games, current_year)
     except Exception as e:
         sys.exit(f"Could not build features: {e}")
 
@@ -91,8 +78,8 @@ def main():
     print("=" * 65)
 
     for _, row in today_bets.iterrows():
-        home = row["home_team"]
-        away = row["away_team"]
+        home = row["home_team_fg"]
+        away = row["away_team_fg"]
         model_prob  = float(row["model_home_prob"])
         market_prob = float(row["market_home_prob"])
         bet_side    = row["recommended_side"]
@@ -113,7 +100,8 @@ def main():
                 X[col] = np.nan
         X = X[model_features]
 
-        contribs = explain_bet(X, artifacts, model_prob, top_n=top_n)
+        contribs = explain_bet(X, artifacts, model_prob, top_n=top_n,
+                               home_team=home, away_team=away)
 
         edge = model_prob - market_prob
         edge_str = f"+{edge*100:.1f}%" if edge >= 0 else f"{edge*100:.1f}%"

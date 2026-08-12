@@ -90,6 +90,8 @@ def explain_bet(
     artifacts: dict,
     calibrated_prob: float,
     top_n: int = 6,
+    home_team: str = "Home",
+    away_team: str = "Away",
 ) -> list[dict]:
     """
     Return the top_n features driving this prediction, with approximate
@@ -137,9 +139,11 @@ def explain_bet(
 
     rows = []
     for feat, contrib, val in zip(model_features, contributions, X.values[0]):
+        label = _LABELS.get(feat, feat)
+        label = label.replace("Home ", f"{home_team} ").replace("Away ", f"{away_team} ")
         rows.append({
             "feature":      feat,
-            "label":        _LABELS.get(feat, feat),
+            "label":        label,
             "contribution": float(contrib),
             "value":        float(val) if not np.isnan(val) else None,
         })

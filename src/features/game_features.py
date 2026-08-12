@@ -269,6 +269,25 @@ def build_game_features(
         sr_cols = [c for c in ["sp_era_last5", "sp_ip_last5"] if c in sp_rolling_stats.columns]
         if sr_cols and "pitcher_name" in sp_rolling_stats.columns:
             sr = sp_rolling_stats[["game_id", "pitcher_name"] + sr_cols].copy()
+
+            # For unplayed games (today/future), the game_id won't exist in sr because
+            # the boxscore hasn't happened yet. Project each scheduled starter's most
+            # recent rolling stats forward to that game_id so the join succeeds.
+            unplayed = feat[feat["home_win"].isna()][["game_id", "home_sp", "away_sp"]].dropna(subset=["game_id"])
+            if not unplayed.empty:
+                latest = sr.sort_values("game_id").groupby("pitcher_name").last().reset_index()
+                latest_map = latest.set_index("pitcher_name")[sr_cols].to_dict("index")
+                proj_rows = []
+                for _, ug in unplayed.iterrows():
+                    for sp_col in ["home_sp", "away_sp"]:
+                        name = ug[sp_col]
+                        if pd.notna(name) and name in latest_map:
+                            row = {"game_id": ug["game_id"], "pitcher_name": name}
+                            row.update(latest_map[name])
+                            proj_rows.append(row)
+                if proj_rows:
+                    sr = pd.concat([sr, pd.DataFrame(proj_rows)], ignore_index=True)
+
             feat = feat.merge(
                 sr.rename(columns={"pitcher_name": "home_sp",
                                     **{c: f"home_{c}" for c in sr_cols}}),

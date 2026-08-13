@@ -421,10 +421,11 @@ def main():
     log.info(f"=== Daily update started — {date.today()} ===")
     log.info(f"Log file: {_log_file}")
 
-    # ── Results-only mode (midnight run): fill results + regenerate Excel ────
+    # ── Results-only mode: fill results, show summary, regenerate Excel ──────
     if args.results_only:
         log.info("Results-only mode — skipping odds and picks.")
         fill_yesterdays_results()
+        print_summary(args.summary_days)
         _export_excel(log)
         try:
             from generate_readme import generate as _gen_readme

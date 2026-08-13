@@ -358,15 +358,12 @@ def _export_excel(logger) -> None:
         freeze_and_filter(_ws_all)
 
         primary = Path("data/picks_tracker.xlsx")
-        backup  = Path(f"data/picks_tracker_{date.today()}.xlsx")
         try:
             _wb.save(primary)
             logger.info(f"Excel tracker updated: {primary}")
         except PermissionError:
-            _wb.save(backup)
             logger.warning(
-                f"picks_tracker.xlsx is open in Excel — saved backup to: {backup.name}  "
-                f"(Close Excel and run again, or open the backup file.)"
+                "picks_tracker.xlsx is open in Excel — close it and run again to update."
             )
     except Exception as e:
         logger.warning(f"Excel export failed: {e}")

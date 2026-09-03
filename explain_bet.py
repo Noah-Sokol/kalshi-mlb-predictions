@@ -66,7 +66,7 @@ def main():
 
     try:
         from src.data.mlb_api import fetch_today_schedule
-        from daily_update import build_features_for_today
+        from update import build_features_for_today
         today_games = fetch_today_schedule()
         feat = build_features_for_today(today_games, current_year)
     except Exception as e:

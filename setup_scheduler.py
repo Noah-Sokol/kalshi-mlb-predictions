@@ -1,5 +1,5 @@
 """
-Registers daily_update.py as a Windows Task Scheduler job at 9:00 AM every day.
+Registers update.py as a Windows Task Scheduler job at 9:00 AM every day.
 
 Run once:
     python setup_scheduler.py
@@ -17,7 +17,7 @@ from pathlib import Path
 
 TASK_NAME = "KalshiMLBDailyUpdate"
 PROJECT_DIR = str(Path(__file__).parent.resolve())
-SCRIPT = str(Path(__file__).parent / "daily_update.py")
+SCRIPT = str(Path(__file__).parent / "update.py")
 
 
 def _run(cmd: list[str]) -> tuple[int, str]:

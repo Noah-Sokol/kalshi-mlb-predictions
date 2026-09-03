@@ -12,7 +12,7 @@ Examples:
     python record_bet.py BAL none
 
 TEAM is the FanGraphs abbreviation of the team you bet on
-(same as shown in daily_update output).
+(same as shown in update.py output).
 """
 import sys
 from datetime import date
@@ -57,7 +57,7 @@ def main():
     else:
         sys.exit(
             f"No game found for {team} on {today_str} in the bets log. "
-            "Run daily_update.py first to log today's predictions."
+            "Run update.py first to log today's predictions."
         )
 
     ok = record_actual_bet(home_team, away_team, side, dollars, notes=notes)

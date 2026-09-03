@@ -550,7 +550,7 @@ def main():
 
     df = load_log()
     if df.empty:
-        print("No bets logged yet — run daily_update.py first.")
+        print("No bets logged yet — run update.py first.")
         return
 
     wb = openpyxl.Workbook()

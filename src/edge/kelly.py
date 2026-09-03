@@ -1,5 +1,5 @@
 """
-Kelly criterion bet sizing for binary prediction markets (Kalshi yes/no contracts).
+Kelly criterion bet sizing for binary moneyline bets (sportsbook YES/NO sides).
 
 Full Kelly maximizes long-run log-wealth but has high variance.
 Fractional Kelly (typically 0.25-0.5) reduces variance at the cost of slower growth.
@@ -9,10 +9,11 @@ import numpy as np
 
 def kelly_fraction(model_prob: float, market_prob: float) -> float:
     """
-    Kelly fraction for a binary yes-contract bet.
+    Kelly fraction for a binary moneyline bet.
 
-    Kalshi pays $1 per contract if you are right (cost = market_prob dollars).
-    So the odds received on a Yes bet are: (1 - market_prob) / market_prob.
+    A winning YES bet pays out at the market's vig-removed implied odds
+    (cost = market_prob dollars per dollar of exposure). So the odds received
+    on a YES bet are: (1 - market_prob) / market_prob.
 
     Kelly formula: f = (p * b - q) / b
       where b = net odds per dollar risked, p = model win prob, q = 1 - p.
@@ -35,7 +36,7 @@ def fractional_kelly(model_prob: float, market_prob: float, fraction: float = 0.
 def edge(model_prob: float, market_prob: float) -> float:
     """
     Simple edge = model probability - market-implied probability.
-    Positive edge means the model thinks the Yes contract is underpriced.
+    Positive edge means the model thinks the YES side is underpriced.
     """
     return model_prob - market_prob
 
@@ -53,7 +54,7 @@ def bet_recommendation(
 
     Parameters:
       model_prob: calibrated model home-win probability
-      market_prob: Kalshi-implied home-win probability (yes contract price / 100)
+      market_prob: market-implied home-win probability (vig-removed from sportsbook odds)
       bankroll: total available bankroll in dollars
       min_edge: minimum edge to recommend a bet (default 4%)
       kelly_frac: fractional Kelly multiplier (default 0.40)

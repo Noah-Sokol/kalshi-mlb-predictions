@@ -394,7 +394,7 @@ FEATURE_COLS = [
     "a_rolling_road_rs_pg", "a_rolling_road_ra_pg",
     "h_rolling_sos",     "a_rolling_sos",
     # Note: rolling_win_pct_last20 and rolling_rd_pg_last20 are computed in the feature
-    # matrix (available for quality-gate filters in backtest.py / edge_detector.py) but
+    # matrix (available for quality-gate filters in update.py / backtest.py) but
     # intentionally NOT in FEATURE_COLS — testing showed they add noise vs the
     # season-to-date rolling stats when used as direct model features.
     # ── FanGraphs batting (prev season) ──────────────────────────────────────

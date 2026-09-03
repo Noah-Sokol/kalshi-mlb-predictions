@@ -15,7 +15,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-TASK_NAME = "KalshiMLBDailyUpdate"
+TASK_NAME = "DraftKingsBetsDailyUpdate"
 PROJECT_DIR = str(Path(__file__).parent.resolve())
 SCRIPT = str(Path(__file__).parent / "update.py")
 
@@ -47,7 +47,7 @@ Register-ScheduledTask `
     -Action $action `
     -Trigger $trigger `
     -Settings $settings `
-    -Description 'MLB Kalshi daily model update and bet logging' `
+    -Description 'MLB DraftKings daily model update and bet logging' `
     -Force
 """
 

@@ -1,11 +1,11 @@
-# MLB Prediction Market Model
+# MLB DraftKings Betting Model
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
 ![XGBoost](https://img.shields.io/badge/Model-XGBoost-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-Live-brightgreen)
 
-An end-to-end MLB prediction market system running in production since August 2026.
+An end-to-end MLB sports betting system running in production since August 2026.
 It ingests live FanGraphs, Statcast, and closing-line odds data; trains an XGBoost
 classifier to estimate game win probabilities; detects positive-EV edges against the
 market; sizes bets via fractional Kelly criterion; and logs everything for daily tracking.
@@ -118,7 +118,8 @@ edge = model_prob − market_implied_prob
 ```
 
 The market probability is derived from The Odds API closing lines after vig removal.
-A positive edge means the model believes the home team is underpriced on Kalshi.
+A positive edge means the model believes the home team is underpriced against the
+DraftKings line.
 
 ### 4. Quality Filters
 
@@ -135,7 +136,7 @@ confirming these filters are load-bearing.
 
 ```
 Kelly fraction  =  (p × b − q) / b
-  where  b = (1 − market_prob) / market_prob   (Kalshi net odds)
+  where  b = (1 − market_prob) / market_prob   (DraftKings net odds)
          p = model_prob
          q = 1 − p
 
@@ -154,7 +155,7 @@ while dramatically reducing variance and drawdown.
 |---|---|
 | Model | XGBoost, scikit-learn, SHAP |
 | Data | pandas, pybaseball, requests |
-| APIs | FanGraphs, MLB Stats API, The Odds API, Kalshi API |
+| APIs | FanGraphs, MLB Stats API, The Odds API (DraftKings, FanDuel, BetMGM, Caesars, Bovada) |
 | Tracking | CSV log, openpyxl Excel export |
 | Automation | Windows Task Scheduler / cron, auto-updating README |
 
@@ -171,7 +172,7 @@ export_excel.py     # Regenerate Excel picks tracker
 generate_readme.py  # Auto-generate this README from live stats
 setup_scheduler.py  # Configure daily scheduled runs
 src/
-  data/             # API clients: FanGraphs, Statcast, MLB API, Kalshi, odds
+  data/             # API clients: FanGraphs, Statcast, MLB API, odds
   features/         # Feature engineering: bullpen load, park factors, game context
   models/           # XGBoost training, inference, calibration
   edge/             # Kelly criterion sizing and edge detection
@@ -192,7 +193,7 @@ pip install -r requirements.txt
 
 # 2. Add API keys
 cp .env.example .env
-# Edit .env with your ODDS_API_KEY and KALSHI_API_KEY
+# Edit .env with your ODDS_API_KEY
 
 # 3. Build features and train model
 python pipeline.py
@@ -210,7 +211,7 @@ python update.py --bankroll 125
 # Force fresh odds (costs 1 API call; default reuses cache if < 4 hrs old)
 python update.py --fresh-odds --bankroll 125
 
-# Record an actual bet placed on Kalshi
+# Record an actual bet placed on DraftKings
 python record_bet.py CIN 9.50
 ```
 
